@@ -89,51 +89,51 @@ const SettingsModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm sm:p-6">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-4xl flex flex-col md:flex-row overflow-hidden max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-gray-900/60 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-4xl flex flex-col md:flex-row overflow-hidden max-h-[90dvh]">
         
         {/* Sidebar Tabs */}
-        <div className="w-full md:w-64 bg-gray-50 dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col hide-scrollbar overflow-y-auto shrink-0 transition-colors">
-          <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center md:block">
+        <div className="w-full md:w-64 bg-gray-50 dark:bg-gray-800 md:border-r border-b md:border-b-0 border-gray-100 dark:border-gray-700 flex flex-col shrink-0 transition-colors">
+          <div className="p-4 md:p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Settings</h2>
-             <button onClick={onClose} className="md:hidden p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+             <button onClick={onClose} className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors md:hidden">
                <X className="w-5 h-5"/>
              </button>
           </div>
-          <div className="p-3 space-y-1">
+          <div className="p-2 md:p-3 flex md:flex-col overflow-x-auto hide-scrollbar gap-2 md:gap-1">
             <button 
               onClick={() => setActiveTab('profile')} 
-              className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+              className={`shrink-0 flex items-center px-4 py-2.5 md:py-3 text-sm font-semibold rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
             >
-              <UserIcon className="w-5 h-5 mr-3" /> Profile
+              <UserIcon className="w-4 h-4 md:w-5 md:h-5 mr-2 md:mr-3" /> Profile
             </button>
             <button 
               onClick={() => setActiveTab('notifications')} 
-              className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-colors ${activeTab === 'notifications' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+              className={`shrink-0 flex items-center px-4 py-2.5 md:py-3 text-sm font-semibold rounded-xl transition-colors ${activeTab === 'notifications' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
             >
-              <Bell className="w-5 h-5 mr-3" /> Notifications
+              <Bell className="w-4 h-4 md:w-5 md:h-5 mr-2 md:mr-3" /> Notifications
             </button>
             <button 
               onClick={() => setActiveTab('appearance')} 
-              className={`w-full flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-colors ${activeTab === 'appearance' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+              className={`shrink-0 flex items-center px-4 py-2.5 md:py-3 text-sm font-semibold rounded-xl transition-colors ${activeTab === 'appearance' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
             >
-              <Palette className="w-5 h-5 mr-3" /> Appearance
+              <Palette className="w-4 h-4 md:w-5 md:h-5 mr-2 md:mr-3" /> Appearance
             </button>
           </div>
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-gray-900">
-           <div className="p-6 md:p-8 flex-1 overflow-y-auto">
+        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-gray-900 overflow-hidden">
+           <div className="p-5 md:p-8 flex-1 overflow-y-auto hide-scrollbar">
              
              {/* PROFILE TAB */}
              {activeTab === 'profile' && (
                <div className="max-w-md">
-                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Profile Settings</h3>
+                 <h3 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Profile Settings</h3>
                  
                  <div className="mb-8 flex items-center space-x-6">
-                   <div className="relative">
-                     <img src={avatar || `https://ui-avatars.com/api/?name=${name || 'U'}&background=random`} alt="Avatar" className="w-24 h-24 rounded-full object-cover border-4 border-white dark:border-gray-800 shadow-sm transition-colors" />
+                   <div className="relative shrink-0">
+                     <img src={avatar || `https://ui-avatars.com/api/?name=${name || 'U'}&background=random`} alt="Avatar" className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-4 border-white dark:border-gray-800 shadow-sm transition-colors" />
                      <button 
                        onClick={() => fileInputRef.current?.click()}
                        disabled={uploading}
