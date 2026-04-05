@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Menu, X, Users, StickyNote, CheckSquare, Folder, BarChart, Settings } from 'lucide-react';
+import { LayoutDashboard, Menu, Users, StickyNote, CheckSquare, Folder, BarChart, Settings } from 'lucide-react';
 
 const Navigation = ({ isMobileMenuOpen, setIsMobileMenuOpen, onOpenSettings }) => {
   const { user } = useAuth();
@@ -32,7 +32,7 @@ const Navigation = ({ isMobileMenuOpen, setIsMobileMenuOpen, onOpenSettings }) =
             <span className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">OmniFlow</span>
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="sm:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-            <X className="w-5 h-5" />
+            <Menu className="w-5 h-5" />
           </button>
         </div>
 

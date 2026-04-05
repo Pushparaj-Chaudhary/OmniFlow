@@ -92,14 +92,21 @@ const NoteCard = ({ note, onEdit, onDelete }) => {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200 overflow-hidden relative">
+      {/* Transparent backdrop — blocks all clicks behind the dropdown */}
+      {showOptions && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={() => setShowOptions(false)}
+        />
+      )}
+
       {/* Three dots menu */}
-      <div className="absolute top-4 right-4 z-10 hidden group-hover:block" />
-      <div className="absolute top-3 right-3 z-10">
+      <div className="absolute top-3 right-3 z-20">
         <button onClick={() => setShowOptions(!showOptions)} className="p-1 text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-100 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <MoreHorizontal className="w-5 h-5" />
         </button>
         {showOptions && (
-          <div className="absolute right-0 mt-1 w-28 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20">
+          <div className="absolute right-0 mt-1 w-28 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
             <button onClick={() => { setShowOptions(false); onEdit(note); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center transition-colors"><Edit2 className="w-4 h-4 mr-2" /> Edit</button>
             <button onClick={() => { setShowOptions(false); onDelete(note._id); }} className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-gray-700 flex items-center transition-colors"><Trash2 className="w-4 h-4 mr-2" /> Delete</button>
           </div>

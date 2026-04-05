@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, X, User as UserIcon, Bell, Palette, Loader2, Save } from 'lucide-react';
+import { Camera, X, User as UserIcon, Bell, Palette, Loader2, Save, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile, uploadAttachment } from '../services/api';
 
@@ -89,35 +89,35 @@ const SettingsModal = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-gray-900/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-4xl flex flex-col md:flex-row overflow-hidden max-h-[90dvh]">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-gray-900/60 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-900 sm:rounded-2xl shadow-xl w-full sm:max-w-4xl flex flex-col md:flex-row overflow-hidden h-full sm:h-auto sm:max-h-[90dvh]">
         
         {/* Sidebar Tabs */}
         <div className="w-full md:w-64 bg-gray-50 dark:bg-gray-800 md:border-r border-b md:border-b-0 border-gray-100 dark:border-gray-700 flex flex-col shrink-0 transition-colors">
-          <div className="p-4 md:p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Settings</h2>
-             <button onClick={onClose} className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors md:hidden">
-               <X className="w-5 h-5"/>
+          <div className="p-4 md:p-6 border-b border-gray-100 dark:border-gray-700 flex items-center">
+             <button onClick={onClose} className="p-1.5 mr-3 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors md:hidden">
+               <ArrowLeft className="w-5 h-5"/>
              </button>
+             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Settings</h2>
           </div>
-          <div className="p-2 md:p-3 flex md:flex-col overflow-x-auto hide-scrollbar gap-2 md:gap-1">
+          <div className="p-2 md:p-3 grid grid-cols-3 md:grid-cols-none md:flex md:flex-col gap-1">
             <button 
               onClick={() => setActiveTab('profile')} 
-              className={`shrink-0 flex items-center px-4 py-2.5 md:py-3 text-sm font-semibold rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start px-2 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-semibold rounded-xl transition-colors ${activeTab === 'profile' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
             >
-              <UserIcon className="w-4 h-4 md:w-5 md:h-5 mr-2 md:mr-3" /> Profile
+              <UserIcon className="w-4 h-4 md:w-5 md:h-5 mb-1 md:mb-0 md:mr-3" /> Profile
             </button>
             <button 
               onClick={() => setActiveTab('notifications')} 
-              className={`shrink-0 flex items-center px-4 py-2.5 md:py-3 text-sm font-semibold rounded-xl transition-colors ${activeTab === 'notifications' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start px-2 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-semibold rounded-xl transition-colors ${activeTab === 'notifications' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
             >
-              <Bell className="w-4 h-4 md:w-5 md:h-5 mr-2 md:mr-3" /> Notifications
+              <Bell className="w-4 h-4 md:w-5 md:h-5 mb-1 md:mb-0 md:mr-3" /> Notifs
             </button>
             <button 
               onClick={() => setActiveTab('appearance')} 
-              className={`shrink-0 flex items-center px-4 py-2.5 md:py-3 text-sm font-semibold rounded-xl transition-colors ${activeTab === 'appearance' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start px-2 md:px-4 py-2.5 md:py-3 text-xs md:text-sm font-semibold rounded-xl transition-colors ${activeTab === 'appearance' ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
             >
-              <Palette className="w-4 h-4 md:w-5 md:h-5 mr-2 md:mr-3" /> Appearance
+              <Palette className="w-4 h-4 md:w-5 md:h-5 mb-1 md:mb-0 md:mr-3" /> Appearance
             </button>
           </div>
         </div>
