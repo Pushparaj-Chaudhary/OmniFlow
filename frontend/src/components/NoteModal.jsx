@@ -353,7 +353,7 @@ const NoteModal = ({ isOpen, onClose, note, onSave, selectedDate }) => {
 
                 <div className="space-y-2 relative border-t border-gray-100 pt-4">
                    <label htmlFor="noteReminderDate" className="text-xs font-semibold text-gray-500 uppercase block">Set Reminder Limit / Due Date</label>
-                   <input type="datetime-local" id="noteReminderDate" name="reminderDate" value={formData.reminderDate} onChange={handleChange} className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                   <input type="datetime-local" id="noteReminderDate" name="reminderDate" value={formData.reminderDate} onChange={handleChange} min={new Date().toISOString().slice(0, 16)} className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
                 </div>
               </>
             )}

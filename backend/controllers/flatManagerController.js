@@ -5,7 +5,7 @@ import Expense from '../models/Expense.js';
 // Groups
 export const getGroups = async (req, res) => {
   try {
-    const groups = await Group.find({ createdBy: req.user._id }).lean();
+    const groups = await Group.find({ createdBy: req.user._id }).sort({ createdAt: 1 }).lean();
     res.json(groups);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -51,7 +51,23 @@ export const getDuties = async (req, res) => {
 
 export const createDuty = async (req, res) => {
   try {
-    const newDuty = new Duty({ ...req.body, createdBy: req.user._id });
+    const dutyData = { ...req.body, createdBy: req.user._id };
+
+    // Auto-assign from existing group members if not provided
+    if (!dutyData.currentAssignee || !dutyData.nextAssignee) {
+      const groups = await Group.find({ createdBy: req.user._id }).sort({ createdAt: 1 }).lean();
+      if (groups.length > 0) {
+        if (!dutyData.currentAssignee) {
+          dutyData.currentAssignee = groups[0]._id;
+        }
+        if (!dutyData.nextAssignee) {
+          // If 2+ members, take the second one. If only 1, repeat the first one.
+          dutyData.nextAssignee = groups.length >= 2 ? groups[1]._id : groups[0]._id;
+        }
+      }
+    }
+
+    const newDuty = new Duty(dutyData);
     const saved = await newDuty.save();
     const populated = await Duty.findById(saved._id).populate('currentAssignee nextAssignee');
     res.status(201).json(populated);

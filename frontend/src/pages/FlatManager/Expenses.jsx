@@ -9,6 +9,19 @@ const Expenses = () => {
   
   const [formData, setFormData] = useState({ description: '', amount: '', paidBy: '' });
 
+  // DateNavbar passes Date objects — normalize to 'yyyy-MM-dd' string
+  const handleDateSelect = (val) => {
+    if (!val) {
+      setSelectedDate(new Date().toISOString().split('T')[0]);
+      return;
+    }
+    if (val instanceof Date) {
+      setSelectedDate(val.toISOString().split('T')[0]);
+    } else {
+      setSelectedDate(val);
+    }
+  };
+
   const loadData = async () => {
     try {
       const [exRes, fmRes] = await Promise.all([ getExpenses(), getGroups() ]);
@@ -33,7 +46,7 @@ const Expenses = () => {
 
   return (
      <div className="space-y-6 mt-4">
-      <DateNavbar selectedDate={selectedDate} onDateSelect={setSelectedDate} hideCreate={true} />
+      <DateNavbar selectedDate={selectedDate} onDateSelect={handleDateSelect} hideCreate={true} />
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         

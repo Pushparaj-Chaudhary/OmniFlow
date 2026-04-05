@@ -1,23 +1,129 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   getGroups,
   createGroup,
   deleteGroup,
   getDuties,
   createDuty,
-  updateDuty
+  updateDuty,
+  deleteDuty
 } from '../../services/api';
-import { RefreshCw, Users, Trash2 } from 'lucide-react';
+import { RefreshCw, Users, Trash2, Sun, Moon, Clock, CalendarDays } from 'lucide-react';
+
+/**
+ * Compute display values for a duty based on:
+ *  1. rotationDays — auto-advance the assignee every N days
+ *  2. timeOfDay    — if Morning/Night, shift within a day at 6 PM / 6 AM
+ *
+ * The duty.currentAssignee is the *base* person. duty.date is when they started.
+ * We compute how many rotation periods have elapsed and offset into the group list.
+ */
+const getDisplayedDuty = (duty, groups) => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const storedTime = duty.timeOfDay || 'Full Day';
+  const rotationDays = duty.rotationDays || 1;
+
+  // --- Step 1: Auto-rotation based on elapsed days ---
+  let displayCurrent = duty.currentAssignee;
+  let displayNext = duty.nextAssignee;
+  let rotationCount = 0;
+
+  const dutyDate = duty.date ? new Date(duty.date) : null;
+
+  if (dutyDate && displayCurrent && groups.length > 0) {
+    // Calculate full days elapsed since duty start date
+    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dutyMidnight = new Date(dutyDate.getFullYear(), dutyDate.getMonth(), dutyDate.getDate());
+    const daysElapsed = Math.floor((nowMidnight - dutyMidnight) / 86400000);
+
+    if (daysElapsed > 0) {
+      rotationCount = Math.floor(daysElapsed / rotationDays);
+    }
+
+    if (rotationCount > 0) {
+      const baseIdx = groups.findIndex(g => g._id === displayCurrent._id);
+      if (baseIdx !== -1) {
+        const currentIdx = (baseIdx + rotationCount) % groups.length;
+        const nextIdx = (currentIdx + 1) % groups.length;
+        displayCurrent = groups[currentIdx];
+        displayNext = groups[nextIdx];
+      }
+    }
+  }
+
+  // --- Step 2: Morning/Night shift within a day ---
+  if (storedTime === 'Full Day') {
+    return {
+      displayTimeOfDay: 'Full Day',
+      displayCurrent,
+      displayNext,
+      isShifted: false,
+      rotationCount
+    };
+  }
+
+  // For Morning/Night duties: 6 AM – 6 PM is morning, 6 PM – 6 AM is night
+  const isNightHours = currentHour >= 18 || currentHour < 6;
+
+  if (storedTime === 'Morning' && isNightHours && groups.length > 0) {
+    // It's night hours but stored as Morning → shift forward by 1
+    const nightCurrent = displayNext;
+    let nightNext = null;
+    if (nightCurrent) {
+      const idx = groups.findIndex(g => g._id === nightCurrent._id);
+      if (idx !== -1) {
+        nightNext = groups[(idx + 1) % groups.length];
+      }
+    }
+    return {
+      displayTimeOfDay: 'Night',
+      displayCurrent: nightCurrent,
+      displayNext: nightNext,
+      isShifted: true,
+      rotationCount
+    };
+  }
+
+  if (storedTime === 'Night' && !isNightHours && groups.length > 0) {
+    // It's morning hours but stored as Night → shift forward by 1
+    const morningCurrent = displayNext;
+    let morningNext = null;
+    if (morningCurrent) {
+      const idx = groups.findIndex(g => g._id === morningCurrent._id);
+      if (idx !== -1) {
+        morningNext = groups[(idx + 1) % groups.length];
+      }
+    }
+    return {
+      displayTimeOfDay: 'Morning',
+      displayCurrent: morningCurrent,
+      displayNext: morningNext,
+      isShifted: true,
+      rotationCount
+    };
+  }
+
+  return {
+    displayTimeOfDay: storedTime,
+    displayCurrent,
+    displayNext,
+    isShifted: false,
+    rotationCount
+  };
+};
 
 const Duties = () => {
   const [groups, setGroups] = useState([]);
-  const [Duties, setDuties] = useState([]);
+  const [duties, setDuties] = useState([]);
+  const [, setTick] = useState(0);
 
   const [newDutyDate, setNewDutyDate] = useState(
     new Date().toISOString().split('T')[0]
   );
-  const [newDutyTime, setNewDutyTime] = useState('Morning');
+  const [newDutyTime, setNewDutyTime] = useState('Full Day');
   const [newDutyName, setNewDutyName] = useState('');
+  const [newDutyRotation, setNewDutyRotation] = useState(1);
   const [newGroup, setNewGroup] = useState({
     name: '',
     email: '',
@@ -41,15 +147,35 @@ const Duties = () => {
     loadData();
   }, []);
 
+  // Re-render every minute so shifts happen automatically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleAddDuty = async () => {
     if (!newDutyName) return;
     try {
-      await createDuty({
+      const payload = {
         name: newDutyName,
         date: newDutyDate,
-        timeOfDay: newDutyTime
-      });
+        timeOfDay: newDutyTime,
+        rotationDays: newDutyRotation
+      };
+      // Auto-assign from existing group members
+      if (groups.length >= 1) {
+        payload.currentAssignee = groups[0]._id;
+      }
+      if (groups.length >= 2) {
+        payload.nextAssignee = groups[1]._id;
+      } else if (groups.length === 1) {
+        payload.nextAssignee = groups[0]._id;
+      }
+      await createDuty(payload);
       setNewDutyName('');
+      setNewDutyRotation(1);
       loadData();
     } catch (err) {}
   };
@@ -73,25 +199,69 @@ const Duties = () => {
   const handleNextTurn = async (duty) => {
     if (groups.length === 0) return alert('Add group members first');
 
+    const displayed = getDisplayedDuty(duty, groups);
+    const effectiveCurrent = displayed.displayCurrent;
+
     let nextIndex = 0;
-    if (duty.currentAssignee) {
-      const currIdx = groups.findIndex(
-        f => f._id === duty.currentAssignee._id
-      );
+    if (effectiveCurrent) {
+      const currIdx = groups.findIndex(f => f._id === effectiveCurrent._id);
       if (currIdx !== -1) {
         nextIndex = (currIdx + 1) % groups.length;
       }
     }
-
     const subsequentIndex = (nextIndex + 1) % groups.length;
 
     try {
       await updateDuty(duty._id, {
         currentAssignee: groups[nextIndex]._id,
-        nextAssignee: groups[subsequentIndex]._id
+        nextAssignee: groups[subsequentIndex]._id,
+        // Reset date to today so auto-rotation starts fresh from the new person
+        date: new Date().toISOString().split('T')[0],
+        timeOfDay: displayed.isShifted ? displayed.displayTimeOfDay : duty.timeOfDay
       });
       loadData();
     } catch (err) {}
+  };
+
+  const handleDeleteDuty = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this duty?')) return;
+    try {
+      await deleteDuty(id);
+      loadData();
+    } catch (err) {}
+  };
+
+  /** Badge style helper */
+  const getBadgeStyle = (displayTime) => {
+    if (displayTime === 'Night') {
+      return 'text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/40 border-indigo-200 dark:border-indigo-700';
+    }
+    if (displayTime === 'Morning') {
+      return 'text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/40 border-amber-200 dark:border-amber-700';
+    }
+    return 'text-gray-500 dark:text-gray-300 bg-gray-50 dark:bg-gray-600 border-gray-200 dark:border-gray-500';
+  };
+
+  const getShiftIcon = (displayTime) => {
+    if (displayTime === 'Night') return <Moon className="w-3 h-3 mr-1" />;
+    if (displayTime === 'Morning') return <Sun className="w-3 h-3 mr-1" />;
+    return <Clock className="w-3 h-3 mr-1" />;
+  };
+
+  /** How many days until the next auto-rotation */
+  const getDaysUntilNextRotation = (duty) => {
+    const rotationDays = duty.rotationDays || 1;
+    const dutyDate = duty.date ? new Date(duty.date) : null;
+    if (!dutyDate) return null;
+
+    const now = new Date();
+    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dutyMidnight = new Date(dutyDate.getFullYear(), dutyDate.getMonth(), dutyDate.getDate());
+    const daysElapsed = Math.floor((nowMidnight - dutyMidnight) / 86400000);
+
+    if (daysElapsed < 0) return rotationDays; // future duty
+    const daysSinceLastRotation = daysElapsed % rotationDays;
+    return rotationDays - daysSinceLastRotation;
   };
 
   return (
@@ -105,63 +275,104 @@ const Duties = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Duties.length === 0 && (
+            {duties.length === 0 && (
               <p className="col-span-full py-4 text-gray-500 dark:text-gray-400">
                 No Duties found.
               </p>
             )}
 
-            {Duties.map(duty => (
-              <div
-                key={duty._id}
-                className="p-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm space-y-4 relative"
-              >
-                <div className="absolute top-4 right-4 flex items-center space-x-1.5 text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-200 bg-gray-50 dark:bg-gray-600 px-2.5 py-1 rounded-md border border-gray-200">
-                  <span>
-                    {duty.date
-                      ? new Date(duty.date).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric'
-                        })
-                      : 'No date'}
-                  </span>
-                  <span>•</span>
-                  <span>{duty.timeOfDay || 'Morning'}</span>
-                </div>
+            {duties.map(duty => {
+              const { displayTimeOfDay, displayCurrent, displayNext, isShifted, rotationCount } = getDisplayedDuty(duty, groups);
+              const daysUntilNext = getDaysUntilNextRotation(duty);
+              const rotDays = duty.rotationDays || 1;
 
-                <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-300 pr-24">
-                  {duty.name}
-                </h3>
-
-                <div className="flex justify-between items-center bg-gray-50/50 dark:bg-gray-600 p-2 sm:p-3 rounded-lg border border-gray-100/50">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-200 uppercase">
-                      Current
-                    </p>
-                    <p className="text-sm text-primary-600 font-bold">
-                      {duty.currentAssignee?.name || 'Unassigned'}
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-200 uppercase">
-                      Up Next
-                    </p>
-                    <p className="text-sm text-primary-600">
-                      → {duty.nextAssignee?.name || 'Unassigned'}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => handleNextTurn(duty)}
-                  className="w-full flex justify-center items-center py-2 bg-primary-600 text-white hover:bg-primary-700 rounded-lg font-medium"
+              return (
+                <div
+                  key={duty._id}
+                  className="p-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm space-y-3 relative"
                 >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Next Turn
-                </button>
-              </div>
-            ))}
+                  {/* Badge: date + shift */}
+                  <div className="absolute top-4 right-4 flex items-center space-x-2">
+                    <div className={`flex items-center space-x-1.5 text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded-md border ${getBadgeStyle(displayTimeOfDay)}`}>
+                      {getShiftIcon(displayTimeOfDay)}
+                      <span>
+                        {duty.date
+                          ? new Date(duty.date).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                          : 'No date'}
+                      </span>
+                      <span>•</span>
+                      <span>{displayTimeOfDay}</span>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteDuty(duty._id)}
+                      className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                      title="Delete Duty"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-300 pr-28">
+                    {duty.name}
+                  </h3>
+
+                  {/* Rotation info */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                      <CalendarDays className="w-3 h-3 mr-1" />
+                      {rotDays === 1 ? 'Rotates daily' : `Rotates every ${rotDays} days`}
+                    </span>
+                    {daysUntilNext !== null && (
+                      <span className="inline-flex items-center text-[10px] sm:text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                        {daysUntilNext === 0
+                          ? 'Rotates today'
+                          : daysUntilNext === 1
+                            ? 'Next rotation tomorrow'
+                            : `Next rotation in ${daysUntilNext} days`
+                        }
+                      </span>
+                    )}
+                    {duty.timeOfDay !== 'Full Day' && (
+                      <span className="inline-flex items-center text-[10px] sm:text-xs font-medium text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                        Day/Night shift
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Current / Up Next */}
+                  <div className="flex justify-between items-center bg-gray-50/50 dark:bg-gray-600 p-2 sm:p-3 rounded-lg border border-gray-100/50">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 dark:text-gray-200 uppercase">
+                        Current
+                      </p>
+                      <p className="text-sm text-primary-600 font-bold">
+                        {displayCurrent?.name || 'Unassigned'}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-xs font-semibold text-gray-400 dark:text-gray-200 uppercase">
+                        Up Next
+                      </p>
+                      <p className="text-sm text-primary-600">
+                        → {displayNext?.name || 'Unassigned'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleNextTurn(duty)}
+                    className="w-full flex justify-center items-center py-2 bg-primary-600 text-white hover:bg-primary-700 rounded-lg font-medium"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Next Turn
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -212,35 +423,41 @@ const Duties = () => {
               </h3>
 
               <div className="space-y-3">
-                <input
-                  type="text"
-                  id="newGroupName"
-                  name="newGroupName"
-                  placeholder="Name (Required)"
-                  value={newGroup.name}
-                  onChange={e =>
-                    setNewGroup({
-                      ...newGroup,
-                      name: e.target.value
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                />
+                <div>
+                  <label htmlFor="newGroupName" className="sr-only">Name</label>
+                  <input
+                    type="text"
+                    id="newGroupName"
+                    name="newGroupName"
+                    placeholder="Name (Required)"
+                    value={newGroup.name}
+                    onChange={e =>
+                      setNewGroup({
+                        ...newGroup,
+                        name: e.target.value
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  />
+                </div>
 
-                <input
-                  type="email"
-                  id="newGroupEmail"
-                  name="newGroupEmail"
-                  placeholder="Email (Optional)"
-                  value={newGroup.email}
-                  onChange={e =>
-                    setNewGroup({
-                      ...newGroup,
-                      email: e.target.value
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                />
+                <div>
+                  <label htmlFor="newGroupEmail" className="sr-only">Email</label>
+                  <input
+                    type="email"
+                    id="newGroupEmail"
+                    name="newGroupEmail"
+                    placeholder="Email (Optional)"
+                    value={newGroup.email}
+                    onChange={e =>
+                      setNewGroup({
+                        ...newGroup,
+                        email: e.target.value
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  />
+                </div>
 
                 <button
                   onClick={handleAddGroup}
@@ -252,43 +469,93 @@ const Duties = () => {
             </div>
           </div>
 
-          {/* ADD NEW DUTY (MOVED HERE) */}
+          {/* ADD NEW DUTY */}
           <div className="p-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm">
             <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-300 mb-3">
               Add New Duty
             </h3>
 
             <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                id="newDutyName"
-                name="newDutyName"
-                value={newDutyName}
-                onChange={e => setNewDutyName(e.target.value)}
-                placeholder="e.g. Take out trash"
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg"
-              />
-
-              <div className="flex gap-3">
+              <div>
+                <label htmlFor="newDutyName" className="sr-only">Duty Name</label>
                 <input
-                  type="date"
-                  id="newDutyDate"
-                  name="newDutyDate"
-                  value={newDutyDate}
-                  onChange={e => setNewDutyDate(e.target.value)}
+                  type="text"
+                  id="newDutyName"
+                  name="newDutyName"
+                  value={newDutyName}
+                  onChange={e => setNewDutyName(e.target.value)}
+                  placeholder="e.g. Take out trash"
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg"
                 />
+              </div>
 
-                <select
-                  id="newDutyTime"
-                  name="newDutyTime"
-                  value={newDutyTime}
-                  onChange={e => setNewDutyTime(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-white dark:bg-gray-800"
+              <div className="flex gap-3">
+                <div className="w-full">
+                  <label htmlFor="newDutyDate" className="sr-only">Date</label>
+                  <input
+                    type="date"
+                    id="newDutyDate"
+                    name="newDutyDate"
+                    value={newDutyDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={e => setNewDutyDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  />
+                </div>
+
+                <div className="w-full">
+                  <label htmlFor="newDutyTime" className="sr-only">Time of Day</label>
+                  <select
+                    id="newDutyTime"
+                    name="newDutyTime"
+                    value={newDutyTime}
+                    onChange={e => setNewDutyTime(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-white dark:bg-gray-800"
+                  >
+                    <option value="Full Day">Full Day</option>
+                    <option value="Morning">Morning</option>
+                    <option value="Night">Night</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Rotation Days */}
+              <div>
+                <label 
+                  htmlFor="newDutyRotation"
+                  className="text-xs font-semibold text-gray-500 dark:text-gray-300 mb-2 block"
                 >
-                  <option value="Morning">Morning</option>
-                  <option value="Night">Night</option>
-                </select>
+                  Next person takes over after how many days?
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setNewDutyRotation(prev => Math.max(1, prev - 1))}
+                      className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold text-lg transition-colors"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      id="newDutyRotation"
+                      name="newDutyRotation"
+                      value={newDutyRotation}
+                      readOnly
+                      className="w-12 py-2 text-center font-bold text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-800 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setNewDutyRotation(prev => prev + 1)}
+                      className="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold text-lg transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {newDutyRotation === 1 ? 'day (daily)' : `days`}
+                  </span>
+                </div>
               </div>
 
               <button
