@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, X, User as UserIcon, Bell, Palette, Loader2, Save, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { updateProfile, uploadAttachment } from '../services/api';
@@ -28,6 +28,17 @@ const SettingsModal = ({ isOpen, onClose }) => {
   });
 
   const fileInputRef = useRef(null);
+
+  // ── Mobile back-button support ───────────────────────────────────────────
+  // Must be before the early return so that hook call order is always stable.
+  useEffect(() => {
+    if (!isOpen) return;
+    // Push a dummy history entry; the back button will pop it.
+    window.history.pushState({ settingsOpen: true }, '');
+    const handlePopState = () => onClose();
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -95,7 +106,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
         {/* Sidebar Tabs */}
         <div className="w-full md:w-64 bg-gray-50 dark:bg-gray-800 md:border-r border-b md:border-b-0 border-gray-100 dark:border-gray-700 flex flex-col shrink-0 transition-colors">
           <div className="p-4 md:p-6 border-b border-gray-100 dark:border-gray-700 flex items-center">
-             <button onClick={onClose} className="p-1.5 mr-3 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors md:hidden">
+             <button onClick={() => window.history.back()} className="p-1.5 mr-3 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors md:hidden">
                <ArrowLeft className="w-5 h-5"/>
              </button>
              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Settings</h2>

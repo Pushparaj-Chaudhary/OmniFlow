@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, ArrowLeft, Sparkles, Paperclip, Check, Loader2, Plus, Trash2 } from 'lucide-react';
 import VoiceRecorder from './VoiceRecorder';
 import { uploadAttachment, uploadVoice, aiSummarize, aiExtractTasks, aiGenerateTitle, aiEnhance, createNote, updateNote } from '../services/api';
@@ -74,6 +74,18 @@ const NoteModal = ({ isOpen, onClose, note, onSave, selectedDate }) => {
       });
     }
   }, [note, isOpen]);
+
+  // ── Mobile back-button support ───────────────────────────────────────────
+  // Keep this before the early return so hook call order never changes.
+  const handleClose = useCallback(() => onClose(), [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    // Push a dummy history entry so the hardware back button has something to pop.
+    window.history.pushState({ noteModalOpen: true }, '');
+    window.addEventListener('popstate', handleClose);
+    return () => window.removeEventListener('popstate', handleClose);
+  }, [isOpen, handleClose]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -203,7 +215,7 @@ const NoteModal = ({ isOpen, onClose, note, onSave, selectedDate }) => {
       <div className="bg-white dark:bg-gray-900 sm:rounded-xl shadow-2xl w-full sm:max-w-2xl h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto hide-scrollbar transition-colors flex flex-col">
         <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center p-5 z-10 transition-colors">
           {/* Mobile: back arrow on left */}
-          <button onClick={onClose} className="sm:hidden p-1.5 mr-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+          <button onClick={() => window.history.back()} className="sm:hidden p-1.5 mr-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 flex-1">{note ? 'Edit' : 'Create'} {formData.type}</h2>

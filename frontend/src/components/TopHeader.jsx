@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { Bell, LogOut, CheckSquare, Menu, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -50,8 +50,27 @@ const TopHeader = ({ setIsMobileMenuOpen }) => {
     }
   };
 
+  // ── Mobile back-button support ──────────────────────────────────────────
+  const closeNotifications = useCallback(() => {
+    setShowNotifications(false);
+  }, []);
+
+  useEffect(() => {
+    if (showNotifications) {
+      // Push a dummy state so the back button has something to pop
+      window.history.pushState({ notifOpen: true }, '');
+
+      const handlePopState = () => {
+        closeNotifications();
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, [showNotifications, closeNotifications]);
+
   const handleNotificationClick = () => {
-    setShowNotifications(!showNotifications);
+    setShowNotifications(prev => !prev);
   };
 
   const handleNotifItemClick = (id) => {
@@ -98,7 +117,7 @@ const TopHeader = ({ setIsMobileMenuOpen }) => {
                 <div ref={portalRef} className="fixed inset-0 z-999 flex flex-col bg-white dark:bg-gray-900 sm:hidden">
                   <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 dark:border-gray-800">
                     <div className="flex items-center space-x-3">
-                      <button onClick={() => setShowNotifications(false)} className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                      <button onClick={() => { window.history.back(); }} className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                         <ArrowLeft className="w-5 h-5" />
                       </button>
                       <h4 className="text-base font-bold text-gray-900 dark:text-gray-100">Pending Tasks ({notifications.length})</h4>
