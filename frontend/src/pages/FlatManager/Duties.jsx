@@ -208,7 +208,7 @@ const Duties = () => {
 
             <div className="border-t border-gray-100 pt-4">
               <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-300 mb-3">
-                + Add Group Member
+                Add Group Member
               </h3>
 
               <div className="space-y-3">
@@ -255,7 +255,7 @@ const Duties = () => {
           {/* ADD NEW DUTY (MOVED HERE) */}
           <div className="p-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm">
             <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-300 mb-3">
-              + Add New Duty
+              Add New Duty
             </h3>
 
             <div className="flex flex-col gap-3">

@@ -5,7 +5,7 @@ const expenseSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   paidBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', required: true },
   date: { type: Date },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true }
 }, { timestamps: true });
 
 export default mongoose.model('Expense', expenseSchema);

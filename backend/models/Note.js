@@ -36,11 +36,12 @@ const noteSchema = new mongoose.Schema({
   },
   assignedPerson: {
     name: { type: String, default: "" },
-    email: { type: String, default: "" },
+    email: { type: String, default: "", index: true },
   },
   assignedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    index: true
   },
   priority: {
     type: String,

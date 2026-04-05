@@ -40,7 +40,7 @@ const Expenses = () => {
         {/* Add Expense Form */}
         <div className="col-span-1">
           <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-bold text-green-700 dark:text-green-400 mb-4 flex items-center">+ Add Expense</h2>
+            <h2 className="text-lg font-bold text-green-700 dark:text-green-400 mb-4 flex items-center">Add Expense</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="expenseDescription" className="text-xs font-semibold text-gray-500 dark:text-gray-200 block mb-1">Description</label>

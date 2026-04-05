@@ -58,7 +58,7 @@ const Reports = () => {
     fetchAllData();
   }, []);
 
-  if (loading) return <div className="flex justify-center items-center h-full mt-20"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>;
+  if (loading) return <div className="flex justify-center mt-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div></div>;
   if (error) return <div className="text-red-500 text-center mt-10 flex flex-col items-center"><AlertCircle className="w-10 h-10 mb-2" />{error}</div>;
 
   return (

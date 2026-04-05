@@ -6,7 +6,7 @@ const Dutieschema = new mongoose.Schema({
   nextAssignee: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
   date: { type: Date },
   timeOfDay: { type: String, enum: ['Morning', 'Night'], default: 'Morning' },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   status: { type: String, enum: ['Pending', 'Completed'], default: 'Pending' }
 }, { timestamps: true });
 

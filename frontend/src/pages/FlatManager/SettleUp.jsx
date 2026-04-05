@@ -17,7 +17,11 @@ const SettleUp = () => {
     fetchData();
   }, []);
 
-  if (loading) return <div className="text-center py-10">Loading settlement...</div>;
+  if (loading) return (
+    <div className="flex justify-center mt-12">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+    </div>
+  );
 
   const totalExpenses = expenses.reduce((sum, curr) => sum + curr.amount, 0);
   const perPersonAverage = groups.length > 0 ? totalExpenses / groups.length : 0;

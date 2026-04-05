@@ -78,7 +78,7 @@ export const getPerformance = async (req, res) => {
         { createdAt: { $gte: todayStart } },
         { updatedAt: { $gte: todayStart } }
       ]
-    });
+    }).lean();
 
     let taskTotal = 0, taskCompleted = 0;
     let routineTotal = 0, routineProgressSum = 0;
@@ -173,7 +173,8 @@ export const getActivity = async (req, res) => {
 
     const recentEvents = await Note.find({ updatedAt: { $gte: todayStart } })
       .sort({ updatedAt: -1 })
-      .populate('assignedBy', 'name');
+      .populate('assignedBy', 'name')
+      .lean();
 
     const activity = recentEvents.map(note => {
       let action = 'updated';

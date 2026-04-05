@@ -5,7 +5,7 @@ import Expense from '../models/Expense.js';
 // Groups
 export const getGroups = async (req, res) => {
   try {
-    const groups = await Group.find({ createdBy: req.user._id });
+    const groups = await Group.find({ createdBy: req.user._id }).lean();
     res.json(groups);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -44,7 +44,7 @@ export const getDuties = async (req, res) => {
         nextDay.setDate(queryDate.getDate() + 1);
         filter.date = { $gte: queryDate, $lt: nextDay };
     }
-    const Duties = await Duty.find(filter).populate('currentAssignee nextAssignee').sort({ createdAt: -1 });
+    const Duties = await Duty.find(filter).populate('currentAssignee nextAssignee').sort({ createdAt: -1 }).lean();
     res.json(Duties);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -77,7 +77,7 @@ export const deleteDuty = async (req, res) => {
 // Expenses
 export const getExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find({ createdBy: req.user._id }).populate('paidBy').sort({ date: -1 });
+    const expenses = await Expense.find({ createdBy: req.user._id }).populate('paidBy').sort({ date: -1 }).lean();
     res.json(expenses);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };

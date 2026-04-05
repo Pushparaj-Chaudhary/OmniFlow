@@ -31,7 +31,11 @@ const Overview = () => {
     fetchData();
   }, []);
 
-  if (loading) return <div className="text-center py-10 dark:text-gray-300">Loading overview...</div>;
+  if (loading) return (
+    <div className="flex justify-center mt-12">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+    </div>
+  );
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">

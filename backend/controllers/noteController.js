@@ -43,7 +43,8 @@ export const getNotes = async (req, res) => {
 
     const notes = await Note.find(query)
       .populate('assignedBy', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(notes);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });

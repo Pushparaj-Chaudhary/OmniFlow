@@ -72,7 +72,6 @@ const DateNavbar = ({ selectedDate, onDateSelect, onCreateNote }) => {
             onClick={onCreateNote}
             className="shrink-0 flex items-center justify-center px-2 py-2 sm:px-4 sm:py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition"
           >
-            <Plus className="w-4 h-4 mr-1" /> 
             <span className="hidden sm:inline">Create</span>
             <span className="sm:hidden">Create</span>
           </button>

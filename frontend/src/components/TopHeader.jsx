@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Bell, LogOut, CheckSquare, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { fetchNotes } from '../services/api';
@@ -7,7 +7,24 @@ const TopHeader = ({ setIsMobileMenuOpen }) => {
   const { user, logout } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [hasViewedNotifications, setHasViewedNotifications] = useState(false);
+  const [readNotifIds, setReadNotifIds] = useState([]);
+  const notifRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -19,10 +36,12 @@ const TopHeader = ({ setIsMobileMenuOpen }) => {
     try {
       const res = await fetchNotes({ type: 'Task', status: 'Pending' });
       const newNotifs = res.data.filter(n => n.assignedPerson?.email === user.email || !n.assignedPerson?.email);
-      setNotifications(prev => {
-        if (newNotifs.length > prev.length) setHasViewedNotifications(false);
-        return newNotifs;
-      });
+      setNotifications(newNotifs);
+
+      const storedReadIds = JSON.parse(localStorage.getItem(`readNotifs_${user.email}`) || '[]');
+      const validReadIds = storedReadIds.filter(id => newNotifs.some(n => n._id === id));
+      localStorage.setItem(`readNotifs_${user.email}`, JSON.stringify(validReadIds));
+      setReadNotifIds(validReadIds);
     } catch (e) {
       console.error(e);
     }
@@ -30,8 +49,17 @@ const TopHeader = ({ setIsMobileMenuOpen }) => {
 
   const handleNotificationClick = () => {
     setShowNotifications(!showNotifications);
-    if (!showNotifications) setHasViewedNotifications(true);
   };
+
+  const handleNotifItemClick = (id) => {
+    if (!readNotifIds.includes(id)) {
+      const updatedIds = [...readNotifIds, id];
+      setReadNotifIds(updatedIds);
+      localStorage.setItem(`readNotifs_${user.email}`, JSON.stringify(updatedIds));
+    }
+  };
+
+  const hasUnread = notifications.some(n => !readNotifIds.includes(n._id));
 
   if (!user) return null;
   return (
@@ -52,28 +80,33 @@ const TopHeader = ({ setIsMobileMenuOpen }) => {
          {/* Removed textual links as per user request */}
       </div>
       <div className="flex items-center space-x-4 relative">
-        <button onClick={handleNotificationClick} className="text-gray-400 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 relative transition-colors">
-          <Bell className="w-5 h-5" />
-          {notifications.length > 0 && !hasViewedNotifications && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
-          )}
-        </button>
-
-        {showNotifications && (
-          <div className="absolute top-12 right-0 sm:right-32 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-lg p-3 z-50 max-h-80 overflow-y-auto">
-            <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-2 border-b dark:border-gray-700 pb-2">Pending Tasks ({notifications.length})</h4>
-            {notifications.length === 0 ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">No pending tasks</p>
-            ) : (
-              notifications.map(n => (
-                <div key={n._id} className="flex flex-col py-2 border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700 rounded px-2 cursor-pointer transition">
-                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 line-clamp-1">{n.title}</span>
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center mt-0.5"><CheckSquare className="w-3 h-3 mr-1"/> Check dashboard for details</span>
-                </div>
-              ))
+        <div ref={notifRef} className="relative flex items-center">
+          <button onClick={handleNotificationClick} className="text-gray-400 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 relative transition-colors">
+            <Bell className="w-5 h-5" />
+            {hasUnread && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
             )}
-          </div>
-        )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute top-10 right-0 sm:-right-4 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-lg p-3 z-50 max-h-80 overflow-y-auto">
+              <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-2 border-b dark:border-gray-700 pb-2">Pending Tasks ({notifications.length})</h4>
+              {notifications.length === 0 ? (
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">No pending tasks</p>
+              ) : (
+                notifications.map(n => {
+                  const isRead = readNotifIds.includes(n._id);
+                  return (
+                    <div key={n._id} onClick={() => handleNotifItemClick(n._id)} className={`flex flex-col py-2 border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700 rounded px-2 cursor-pointer transition ${isRead ? 'opacity-70' : 'bg-blue-50/50 dark:bg-blue-900/10'}`}>
+                      <span className={`text-xs text-gray-800 dark:text-gray-200 line-clamp-1 ${isRead ? 'font-medium' : 'font-extrabold'}`}>{n.title}</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 flex items-center mt-0.5"><CheckSquare className="w-3 h-3 mr-1"/> Check dashboard for details</span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded-full py-1 px-1 sm:px-2" title="Profile">
           <img src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name || 'U'}&background=random`} alt="Profile" className="w-6 h-6 rounded-full sm:mr-2 object-cover" />

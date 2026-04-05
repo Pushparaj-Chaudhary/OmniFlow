@@ -2,7 +2,7 @@ import Note from '../models/Note.js';
 
 export const getAnalytics = async (req, res) => {
   try {
-    const notes = await Note.find({ assignedBy: req.user._id }).sort({ 'createdAt': 1 });
+    const notes = await Note.find({ assignedBy: req.user._id }).sort({ 'createdAt': 1 }).lean();
     
     let totalCompleted = 0;
     let totalTasks = 0;
