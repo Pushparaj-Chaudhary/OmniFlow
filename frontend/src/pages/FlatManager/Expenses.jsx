@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { getExpenses, createExpense, getGroups } from '../../services/api';
 import DateNavbar from '../../components/DateNavbar';
+import { formatDateLocal } from '../../utils/dateUtils';
 
 const Expenses = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(formatDateLocal(new Date()));
   const [expenses, setExpenses] = useState([]);
   const [groups, setGroups] = useState([]);
   
@@ -16,7 +17,7 @@ const Expenses = () => {
       return;
     }
     if (val instanceof Date) {
-      setSelectedDate(val.toISOString().split('T')[0]);
+      setSelectedDate(formatDateLocal(val));
     } else {
       setSelectedDate(val);
     }
@@ -42,7 +43,7 @@ const Expenses = () => {
     } catch(err) {}
   };
 
-  const filteredExpenses = expenses.filter(e => e.date && new Date(e.date).toISOString().split('T')[0] === selectedDate);
+  const filteredExpenses = expenses.filter(e => e.date && formatDateLocal(e.date) === selectedDate);
 
   return (
      <div className="space-y-6 mt-4">

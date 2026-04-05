@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, ArrowLeft, Sparkles, Paperclip, Check, Loader2, Plus, Trash2 } from 'lucide-react';
 import VoiceRecorder from './VoiceRecorder';
 import { uploadAttachment, uploadVoice, aiSummarize, aiExtractTasks, aiGenerateTitle, aiEnhance, createNote, updateNote } from '../services/api';
+import { formatDateLocal, formatDateTimeLocal } from '../utils/dateUtils';
 
 const NoteModal = ({ isOpen, onClose, note, onSave, selectedDate }) => {
   const [formData, setFormData] = useState({
@@ -48,7 +49,7 @@ const NoteModal = ({ isOpen, onClose, note, onSave, selectedDate }) => {
         priority: note.priority || 'Medium',
         status: note.status || 'Pending',
         assignedPerson: note.assignedPerson || { name: '', email: '' },
-        reminderDate: note.reminderDate ? new Date(note.reminderDate).toISOString().slice(0, 16) : '',
+        reminderDate: note.reminderDate ? formatDateTimeLocal(note.reminderDate) : '',
         attachments: note.attachments || [],
         voiceNotes: note.voiceNotes || [],
         startTime: note.startTime || '',
@@ -184,9 +185,11 @@ const NoteModal = ({ isOpen, onClose, note, onSave, selectedDate }) => {
       const payload = { ...formData };
       
       if (payload.type === 'Routine' && payload.reminderEnabled && payload.startTime) {
-        const baseDate = selectedDate ? new Date(selectedDate) : new Date();
+        const dateStr = selectedDate || formatDateLocal(new Date());
         const [hours, minutes] = payload.startTime.split(':');
-        baseDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+        // Create a local date object from the strings
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const baseDate = new Date(y, m - 1, d, parseInt(hours, 10), parseInt(minutes, 10));
         baseDate.setMinutes(baseDate.getMinutes() - 10); // 10 min before
         payload.reminderDate = baseDate.toISOString();
       }
@@ -353,7 +356,7 @@ const NoteModal = ({ isOpen, onClose, note, onSave, selectedDate }) => {
 
                 <div className="space-y-2 relative border-t border-gray-100 pt-4">
                    <label htmlFor="noteReminderDate" className="text-xs font-semibold text-gray-500 uppercase block">Set Reminder Limit / Due Date</label>
-                   <input type="datetime-local" id="noteReminderDate" name="reminderDate" value={formData.reminderDate} onChange={handleChange} min={new Date().toISOString().slice(0, 16)} className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                   <input type="datetime-local" id="noteReminderDate" name="reminderDate" value={formData.reminderDate} onChange={handleChange} min={formatDateTimeLocal(new Date())} className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
                 </div>
               </>
             )}

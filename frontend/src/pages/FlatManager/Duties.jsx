@@ -9,6 +9,7 @@ import {
   deleteDuty
 } from '../../services/api';
 import { RefreshCw, Users, Trash2, Sun, Moon, Clock, CalendarDays } from 'lucide-react';
+import { formatDateLocal } from '../../utils/dateUtils';
 
 /**
  * Compute display values for a duty based on:
@@ -119,7 +120,7 @@ const Duties = () => {
   const [, setTick] = useState(0);
 
   const [newDutyDate, setNewDutyDate] = useState(
-    new Date().toISOString().split('T')[0]
+    formatDateLocal(new Date())
   );
   const [newDutyTime, setNewDutyTime] = useState('Full Day');
   const [newDutyName, setNewDutyName] = useState('');
@@ -216,7 +217,7 @@ const Duties = () => {
         currentAssignee: groups[nextIndex]._id,
         nextAssignee: groups[subsequentIndex]._id,
         // Reset date to today so auto-rotation starts fresh from the new person
-        date: new Date().toISOString().split('T')[0],
+        date: formatDateLocal(new Date()),
         timeOfDay: displayed.isShifted ? displayed.displayTimeOfDay : duty.timeOfDay
       });
       loadData();
@@ -497,7 +498,7 @@ const Duties = () => {
                     id="newDutyDate"
                     name="newDutyDate"
                     value={newDutyDate}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={formatDateLocal(new Date())}
                     onChange={e => setNewDutyDate(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg"
                   />
