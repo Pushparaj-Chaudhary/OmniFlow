@@ -8,6 +8,7 @@ import noteRoutes from './routes/noteRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import flatManagerRoutes from './routes/flatManagerRoutes.js';
+import householdRoutes from './routes/householdRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 
 dotenv.config();
@@ -36,6 +37,7 @@ app.use('/api/notes', noteRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/flatmanager', flatManagerRoutes);
+app.use('/api/household', householdRoutes);
 app.use('/api/reports', reportRoutes);
 
 // Initialize Reminder Cron Job

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   getGroups,
   createGroup,
@@ -6,10 +7,13 @@ import {
   getDuties,
   createDuty,
   updateDuty,
-  deleteDuty
+  deleteDuty,
+  getHouseholdMembers,
+  removeMember
 } from '../../services/api';
-import { RefreshCw, Users, Trash2, Sun, Moon, Clock, CalendarDays } from 'lucide-react';
+import { RefreshCw, Users, Trash2, Sun, Moon, Clock, CalendarDays, Key, Share2, Copy, UserCheck, Shield, Plus } from 'lucide-react';
 import { formatDateLocal } from '../../utils/dateUtils';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Compute display values for a duty based on:
@@ -115,9 +119,13 @@ const getDisplayedDuty = (duty, groups) => {
 };
 
 const Duties = () => {
+  const { user: currentUser, updateUser } = useAuth();
+  const location = useLocation();
+  const [tick, setTick] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [household, setHousehold] = useState(null);
   const [groups, setGroups] = useState([]);
   const [duties, setDuties] = useState([]);
-  const [, setTick] = useState(0);
 
   const [newDutyDate, setNewDutyDate] = useState(
     formatDateLocal(new Date())
@@ -131,22 +139,30 @@ const Duties = () => {
     phone: ''
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const [fmRes, chRes] = await Promise.all([
+      const [fmRes, chRes, houseRes] = await Promise.all([
         getGroups(),
-        getDuties()
+        getDuties(),
+        getHouseholdMembers()
       ]);
       setGroups(fmRes.data);
       setDuties(chRes.data);
+      setHousehold(houseRes.data);
     } catch (err) {
       console.error(err);
+      if (err.response?.status === 404) {
+        // If household is not found, clear it from session
+        updateUser({ activeHousehold: null });
+      }
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [updateUser]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Re-render every minute so shifts happen automatically
   useEffect(() => {
@@ -168,6 +184,7 @@ const Duties = () => {
       // Auto-assign from existing group members
       if (groups.length >= 1) {
         payload.currentAssignee = groups[0]._id;
+        payload.assigneeType = groups[0].type;
       }
       if (groups.length >= 2) {
         payload.nextAssignee = groups[1]._id;
@@ -190,11 +207,18 @@ const Duties = () => {
     } catch (err) {}
   };
 
-  const handleDeleteGroup = async (id) => {
+  const handleDeleteMember = async (member) => {
+    if (!window.confirm(`Are you sure you want to remove ${member.name}?`)) return;
     try {
-      await deleteGroup(id);
+      if (member.type === 'User') {
+        await removeMember(member._id);
+      } else {
+        await deleteGroup(member._id);
+      }
       loadData();
-    } catch (err) {}
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to remove member');
+    }
   };
 
   const handleNextTurn = async (duty) => {
@@ -216,6 +240,7 @@ const Duties = () => {
       await updateDuty(duty._id, {
         currentAssignee: groups[nextIndex]._id,
         nextAssignee: groups[subsequentIndex]._id,
+        assigneeType: groups[nextIndex].type,
         // Reset date to today so auto-rotation starts fresh from the new person
         date: formatDateLocal(new Date()),
         timeOfDay: displayed.isShifted ? displayed.displayTimeOfDay : duty.timeOfDay
@@ -230,6 +255,32 @@ const Duties = () => {
       await deleteDuty(id);
       loadData();
     } catch (err) {}
+  };
+
+  const copyCode = () => {
+    if (household?.secretCode) {
+      navigator.clipboard.writeText(household.secretCode);
+      alert('Secret code copied!');
+    }
+  };
+
+  const shareLink = async () => {
+    if (!household?.secretCode) return;
+    const link = `${window.location.origin}/flatmanager?joinCode=${household.secretCode}`;
+    const shareData = {
+      title: 'Join my OmniFlow Group',
+      text: `Join ${household.name} on OmniFlow! Code: ${household.secretCode}`,
+      url: link,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) { console.error(err); }
+    } else {
+      navigator.clipboard.writeText(`Join group ${household.name} on OmniFlow!\nCode: ${household.secretCode}\nLink: ${link}`);
+      alert('Invite link copied!');
+    }
   };
 
   /** Badge style helper */
@@ -380,94 +431,134 @@ const Duties = () => {
         {/* RIGHT SIDE */}
         <div className="space-y-6">
 
-          {/* TEAM MEMBERS */}
-          <div className="p-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm">
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-              <Users className="w-5 h-5 mr-2 text-primary-500" />
-              Manage Group Members
-            </h2>
+          {/* TEAM MEMBERS (AUTOMATIC & MANUAL) */}
+          <div className="p-4 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden transition-colors">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center">
+                <Users className="w-5 h-5 mr-2 text-primary-500" />
+                Group Members
+              </h2>
+              {household?.name && (
+                <span className="text-[10px] font-bold text-primary-600 bg-primary-50 dark:bg-primary-900/40 px-2 py-1 rounded-full border border-primary-100 dark:border-primary-800">
+                  {household.name}
+                </span>
+              )}
+            </div>
 
-            <div className="space-y-3 mb-6">
+            {/* Invite roommates area (Admin Only) */}
+            {household?.admin === currentUser?._id && (
+              <div className="bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800/50 rounded-xl p-4 mb-6 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">
+                          <Key className="w-3 h-3" />
+                          <span>Invitation Code</span>
+                      </div>
+                      <p className="text-xl font-mono font-black text-gray-800 dark:text-gray-200 tracking-widest">{household?.secretCode || '......'}</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={copyCode} className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 transition-colors shadow-sm" title="Copy Code">
+                          <Copy className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <button onClick={shareLink} className="p-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors shadow-md shadow-primary-200 dark:shadow-none" title="Share Invitation">
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 italic">New members use this code to join automatically.</p>
+              </div>
+            )}
+
+            <div className="space-y-3 mb-8">
               {groups.length === 0 && (
-                <p className="text-gray-400 text-sm">
-                  No group members added.
-                </p>
+                <div className="text-center py-6 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                  <p className="text-gray-400 text-sm">Waiting for members to join...</p>
+                </div>
               )}
 
-              {groups.map(fm => (
-                <div
-                  key={fm._id}
-                  className="flex justify-between items-center p-2 border border-gray-100 dark:border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-800"
-                >
-                  <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-300 text-sm">
-                      {fm.name}
-                    </p>
-                    {fm.email && (
-                      <p className="text-xs text-gray-500">{fm.email}</p>
+              {groups.map(fm => {
+                const isAdmin = household?.admin === currentUser?._id;
+                const isMemberRealUser = fm.type === 'User';
+                const isSelf = fm._id === currentUser?._id;
+                const canRemove = isAdmin && !isSelf;
+
+                return (
+                  <div
+                    key={fm._id}
+                    className="flex justify-between items-center p-3 border border-gray-100 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-900/50 hover:bg-white dark:hover:bg-gray-800 transition-all border-l-4 border-l-transparent hover:border-l-primary-500 dark:hover:border-l-primary-500 group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${isMemberRealUser ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                         {isMemberRealUser ? <UserCheck className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-800 dark:text-gray-200 text-sm flex items-center gap-2">
+                          {fm.name}
+                          {fm._id === household?.admin && (
+                            <Shield className="w-3.5 h-3.5 text-amber-500" title="Group Admin" />
+                          )}
+                          {isSelf && (
+                            <span className="text-[9px] bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded uppercase tracking-tighter">You</span>
+                          )}
+                        </p>
+                        <p className="text-[10px] text-gray-400 uppercase font-semibold">{isMemberRealUser ? 'Joined Member' : 'Manual Guest'}</p>
+                      </div>
+                    </div>
+
+                    {canRemove && (
+                      <button
+                        onClick={() => handleDeleteMember(fm)}
+                        className="text-red-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
+                        title="Remove Member"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
-
-                  <button
-                    onClick={() => handleDeleteGroup(fm._id)}
-                    className="text-red-400 hover:text-red-600"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            <div className="border-t border-gray-100 pt-4">
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-300 mb-3">
-                Add Group Member
-              </h3>
+            {/* Addition Form (Only for Admin - Added as "Manual Guests") */}
+            {household?.admin === currentUser?._id && (
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-6">
+                <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4 flex items-center">
+                   <Plus className="w-3 h-3 mr-1" />
+                   Add Manual New Member
+                </h3>
 
-              <div className="space-y-3">
-                <div>
-                  <label htmlFor="newGroupName" className="sr-only">Name</label>
+                <div className="space-y-3">
+                  <label htmlFor="manualMemberName" className="sr-only">Member Name</label>
                   <input
                     type="text"
-                    id="newGroupName"
-                    name="newGroupName"
-                    placeholder="Name (Required)"
+                    id="manualMemberName"
+                    name="manualMemberName"
+                    placeholder="Member Name"
+                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none transition-all text-sm"
                     value={newGroup.name}
-                    onChange={e =>
-                      setNewGroup({
-                        ...newGroup,
-                        name: e.target.value
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                    onChange={e => setNewGroup({ ...newGroup, name: e.target.value })}
                   />
+                  <div className="grid grid-cols-2 gap-3">
+                    <label htmlFor="manualMemberEmail" className="sr-only">Email Address</label>
+                    <input
+                      type="email"
+                      id="manualMemberEmail"
+                      name="manualMemberEmail"
+                      placeholder="Email (Optional)"
+                      className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-xs focus:ring-2 focus:ring-primary-500 outline-none"
+                      value={newGroup.email}
+                      onChange={e => setNewGroup({ ...newGroup, email: e.target.value })}
+                    />
+                    <button
+                      onClick={handleAddGroup}
+                      className="py-2 bg-gray-800 dark:bg-gray-700 text-white text-xs font-bold rounded-xl hover:bg-black transition-all"
+                    >
+                      Add Guest
+                    </button>
+                  </div>
                 </div>
-
-                <div>
-                  <label htmlFor="newGroupEmail" className="sr-only">Email</label>
-                  <input
-                    type="email"
-                    id="newGroupEmail"
-                    name="newGroupEmail"
-                    placeholder="Email (Optional)"
-                    value={newGroup.email}
-                    onChange={e =>
-                      setNewGroup({
-                        ...newGroup,
-                        email: e.target.value
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                  />
-                </div>
-
-                <button
-                  onClick={handleAddGroup}
-                  className="w-full py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg"
-                >
-                  Add Group Member
-                </button>
               </div>
-            </div>
+            )}
           </div>
 
           {/* ADD NEW DUTY */}
@@ -485,8 +576,8 @@ const Duties = () => {
                   name="newDutyName"
                   value={newDutyName}
                   onChange={e => setNewDutyName(e.target.value)}
-                  placeholder="e.g. Take out trash"
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg"
+                  placeholder="e.g. Cooking"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg dark:text-white text-black"
                 />
               </div>
 

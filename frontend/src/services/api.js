@@ -59,6 +59,11 @@ export const getGroups = () => api.get('/flatmanager/groups');
 export const createGroup = (data) => api.post('/flatmanager/groups', data);
 export const deleteGroup = (id) => api.delete(`/flatmanager/groups/${id}`);
 
+export const createHousehold = (data) => api.post('/household', data);
+export const joinHousehold = (data) => api.post('/household/join', data);
+export const getHouseholdMembers = () => api.get('/household/members');
+export const removeMember = (memberId) => api.post('/household/remove-member', { memberId });
+
 export const getDuties = (date) => api.get('/flatmanager/Duties', { params: { date } });
 export const createDuty = (data) => api.post('/flatmanager/Duties', data);
 export const updateDuty = (id, data) => api.put(`/flatmanager/Duties/${id}`, data);
@@ -66,7 +71,10 @@ export const deleteDuty = (id) => api.delete(`/flatmanager/Duties/${id}`);
 
 export const getExpenses = () => api.get('/flatmanager/expenses');
 export const createExpense = (data) => api.post('/flatmanager/expenses', data);
+export const updateExpense = (id, data) => api.put(`/flatmanager/expenses/${id}`, data);
 export const deleteExpense = (id) => api.delete(`/flatmanager/expenses/${id}`);
+export const getMyHouseholds = () => api.get('/flatmanager/my-households');
+export const switchHousehold = (id) => api.post(`/flatmanager/switch/${id}`);
 
 export const getAnalytics = () => api.get('/notes/analytics');
 

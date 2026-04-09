@@ -29,8 +29,9 @@ const userSchema = new mongoose.Schema({
       theme: { type: String, enum: ['light', 'dark'], default: 'light' },
       themeColor: { type: String, default: 'purple' },
       cardSize: { type: String, enum: ['compact', 'comfortable'], default: 'comfortable' },
-    }
-  }
+    },
+  },
+  activeHousehold: { type: mongoose.Schema.Types.ObjectId, ref: 'Household' }
 }, {
   timestamps: true,
 });

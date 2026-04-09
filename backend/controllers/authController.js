@@ -100,6 +100,7 @@ export const verifyOtp = async (req, res) => {
       email: user.email,
       avatar: user.avatar,
       settings: user.settings,
+      activeHousehold: user.activeHousehold,
       token,
     });
   } catch (error) {
@@ -136,6 +137,7 @@ export const updateProfile = async (req, res) => {
       email: updatedUser.email,
       avatar: updatedUser.avatar,
       settings: updatedUser.settings,
+      activeHousehold: updatedUser.activeHousehold,
     });
   } catch (error) {
     console.error('Profile Update Error:', error);
