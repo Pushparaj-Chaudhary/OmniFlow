@@ -1,0 +1,200 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
+import { Bell, LogOut, CheckSquare, Menu, ArrowLeft, BrainCircuit } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { fetchNotes, getTaskMentorNotifications } from '../services/api';
+
+const TopHeader = ({ setIsMobileMenuOpen }) => {
+  const { user, logout } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [readNotifIds, setReadNotifIds] = useState([]);
+  const notifRef = useRef(null);
+  const portalRef = useRef(null);
+
+  useEffect(() => {
+    // Only mousedown (desktop dropdown). On mobile the portal covers the full
+    // screen so click-outside is not needed — and adding touchstart here caused
+    // the overlay removal to race with the subsequent click, landing on the
+    // hamburger button underneath.
+    const handleClickOutside = (event) => {
+      const inNotif = notifRef.current && notifRef.current.contains(event.target);
+      const inPortal = portalRef.current && portalRef.current.contains(event.target);
+      if (!inNotif && !inPortal) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadNotifications();
+    }
+  }, [user]);
+
+  const loadNotifications = async () => {
+    try {
+      // 1. Fetch regular pending tasks
+      const resNotes = await fetchNotes({ type: 'Task', status: 'Pending' });
+      const pendingNotes = resNotes.data.filter(n => n.assignedPerson?.email === user.email || !n.assignedPerson?.email);
+      
+      // 2. Fetch Task Mentor notifications
+      let mentorNotifs = [];
+      try {
+        const resMentor = await getTaskMentorNotifications();
+        mentorNotifs = resMentor.data.map(n => ({
+          ...n,
+          isMentor: true,
+          title: n.message, // Use message as title for display
+          _id: n._id
+        }));
+      } catch (mentorError) {
+        console.error("Mentor notifications failed to load:", mentorError);
+      }
+
+      const allNotifs = [...pendingNotes, ...mentorNotifs];
+      setNotifications(allNotifs);
+
+      const storedReadIds = JSON.parse(localStorage.getItem(`readNotifs_${user.email}`) || '[]');
+      const validReadIds = storedReadIds.filter(id => allNotifs.some(n => n._id === id));
+      localStorage.setItem(`readNotifs_${user.email}`, JSON.stringify(validReadIds));
+      setReadNotifIds(validReadIds);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // ── Mobile back-button support ──────────────────────────────────────────
+  const closeNotifications = useCallback(() => {
+    setShowNotifications(false);
+  }, []);
+
+  useEffect(() => {
+    if (showNotifications) {
+      // Push a dummy state so the back button has something to pop
+      window.history.pushState({ notifOpen: true }, '');
+
+      const handlePopState = () => {
+        closeNotifications();
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, [showNotifications, closeNotifications]);
+
+  const handleNotificationClick = () => {
+    setShowNotifications(prev => !prev);
+  };
+
+  const handleNotifItemClick = (id) => {
+    if (!readNotifIds.includes(id)) {
+      const updatedIds = [...readNotifIds, id];
+      setReadNotifIds(updatedIds);
+      localStorage.setItem(`readNotifs_${user.email}`, JSON.stringify(updatedIds));
+    }
+  };
+
+  const hasUnread = notifications.some(n => !readNotifIds.includes(n._id));
+
+  if (!user) return null;
+  return (
+    <div className="h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between px-4 sm:px-8 shrink-0 relative z-10 transition-colors">
+      
+      {/* Mobile Left Section: Hamburger + Logo */}
+      <div className="flex sm:hidden items-center">
+        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 mr-2 bg-white dark:bg-gray-800 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <Menu className="w-6 h-6" />
+        </button>
+        <div className="flex items-center">
+          <img src="/logo.png" alt="" className='w-8 h-auto dark:invert-0 invert mr-2'/>
+          <span className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">OmniFlow</span>
+        </div>
+      </div>
+
+      <div className="hidden sm:flex space-x-6 text-sm font-semibold text-gray-600 dark:text-gray-300">
+         {/* Removed textual links as per user request */}
+      </div>
+      <div className="flex items-center space-x-4 relative">
+        <div ref={notifRef} className="relative flex items-center">
+          <button onClick={handleNotificationClick} className="text-gray-400 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 relative transition-colors">
+            <Bell className="w-5 h-5" />
+            {hasUnread && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <>
+              {/* ── Mobile: full-screen overlay via portal (escapes TopHeader stacking context) ── */}
+              {ReactDOM.createPortal(
+                <div ref={portalRef} className="fixed inset-0 z-999 flex flex-col bg-white dark:bg-gray-900 sm:hidden">
+                  <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center space-x-3">
+                      <button onClick={() => { window.history.back(); }} className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        <ArrowLeft className="w-5 h-5" />
+                      </button>
+                      <h4 className="text-base font-bold text-gray-900 dark:text-gray-100">Pending Tasks ({notifications.length})</h4>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                    {notifications.length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-12">No pending tasks 🎉</p>
+                    ) : (
+                      notifications.map(n => {
+                        const isRead = readNotifIds.includes(n._id);
+                        return (
+                          <div key={n._id} onClick={() => handleNotifItemClick(n._id)} className={`flex flex-col py-3 px-4 rounded-xl border cursor-pointer transition ${isRead ? 'border-gray-100 dark:border-gray-800 opacity-70' : 'border-blue-100 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-900/10'}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              {n.isMentor ? <BrainCircuit className="w-4 h-4 text-purple-500" /> : <CheckSquare className="w-4 h-4 text-blue-500" />}
+                              <span className={`text-sm text-gray-800 dark:text-gray-200 ${isRead ? 'font-medium' : 'font-extrabold'}`}>{n.isMentor ? 'AI Mentor' : 'Task'}</span>
+                            </div>
+                            <span className="text-xs text-gray-600 dark:text-gray-400">{n.isMentor ? n.message : n.title}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>,
+                document.body
+              )}
+
+              {/* ── Desktop: dropdown card ── */}
+              <div className="hidden sm:block absolute top-10 -right-4 w-72 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-lg p-3 z-50 max-h-80 overflow-y-auto">
+                <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-2 border-b dark:border-gray-700 pb-2">Pending Tasks ({notifications.length})</h4>
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">No pending tasks</p>
+                ) : (
+                  notifications.map(n => {
+                    const isRead = readNotifIds.includes(n._id);
+                    return (
+                      <div key={n._id} onClick={() => handleNotifItemClick(n._id)} className={`flex flex-col py-2 border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700 rounded px-2 cursor-pointer transition ${isRead ? 'opacity-70' : 'bg-blue-50/50 dark:bg-blue-900/10'}`}>
+                        <div className="flex items-center gap-2">
+                           {n.isMentor ? <BrainCircuit className="w-3 h-3 text-purple-500" /> : <CheckSquare className="w-3 h-3 text-blue-500" />}
+                           <span className={`text-xs text-gray-800 dark:text-gray-200 line-clamp-1 ${isRead ? 'font-medium' : 'font-extrabold'}`}>{n.isMentor ? n.message : n.title}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded-full py-1 px-1 sm:px-2" title="Profile">
+          <img src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.name || 'U'}&background=random`} alt="Profile" className="w-6 h-6 rounded-full sm:mr-2 object-cover" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 mr-2 hidden sm:block">{user?.name || 'User'}</span>
+        </div>
+        <button onClick={logout} className="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+          <LogOut className="w-5 h-5 sm:w-4 sm:h-4 sm:mr-1" /> <span className="hidden sm:inline">Logout</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default TopHeader;
