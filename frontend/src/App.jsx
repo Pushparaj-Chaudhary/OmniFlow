@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Auth from './pages/Auth';
+import LandingPage from './pages/LandingPage';
 import FlatManager from './pages/FlatManager';
 import TaskMentor from './pages/TaskMentor';
 import Reports from './pages/Reports';
@@ -26,7 +27,14 @@ const ProtectedRoute = ({ children }) => {
   }, [user]);
 
   if (loading) return null;
-  return user ? children : <Navigate to="/login" />;
+  return user ? children : <Navigate to="/landing" />;
+};
+
+/* Shows LandingPage for guests, Dashboard for logged-in users */
+const SmartHome = () => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? <Dashboard defaultTypeFilter="" /> : <LandingPage />;
 };
 
 import MainLayout from './components/MainLayout';
@@ -37,8 +45,9 @@ function App() {
       <Router>
         <MainLayout>
           <Routes>
+            <Route path="/landing" element={<LandingPage />} />
             <Route path="/login" element={<Auth />} />
-            <Route path="/" element={<ProtectedRoute><Dashboard defaultTypeFilter="" /></ProtectedRoute>} />
+            <Route path="/" element={<SmartHome />} />
             <Route path="/notes" element={<ProtectedRoute><Dashboard defaultTypeFilter="Note" /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Dashboard defaultTypeFilter="Task" /></ProtectedRoute>} />
             <Route path="/routines" element={<ProtectedRoute><Dashboard defaultTypeFilter="Routine" /></ProtectedRoute>} />
